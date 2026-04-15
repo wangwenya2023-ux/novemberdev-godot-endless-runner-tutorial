@@ -7,13 +7,13 @@ var is_debug #%**-
 
 var scenes #%**--
 
-# which stores all inactive scene instances
+# 存储所有非活跃的场景实例
 var object_pool = {}
 
-# stores all active scene instances
+# 存储所有活跃的场景实例
 var used_object_pool = {}
 
-# records scene instances, which had to be created at runtime
+# 记录在运行时必须创建的场景实例
 var pool_miss = {}
 var debug_timer = 5.0
 var is_starting = true
@@ -21,7 +21,7 @@ var instances_count = 0
 var debug_pool_miss_timer = 30.0
 
 func _ready():
-	# create all instances foreach scene
+	# 为每个场景创建所有实例
 	for scene_path in scenes:
 		for i in range(0, scenes[scene_path]):
 			create_instance(scene_path)
@@ -29,7 +29,7 @@ func _ready():
 	print_status()
 	set_process(is_debug)
 
-# displays debug informatio if debug is toggled in the UI
+# 如果在 UI 中启用了调试，则显示调试信息
 func _process(delta):
 	debug_timer -= delta
 	debug_pool_miss_timer -= delta
@@ -40,11 +40,11 @@ func _process(delta):
 		print_pool_miss()
 		debug_pool_miss_timer = 30.0
 
-# loads an instance from the pool if it is available
-# or creates a new instance if it is not inside the pool
+# 从池中加载实例（如果可用），
+# 如果池中没有则创建新实例
 func load_from_pool(scene_path):
 	if object_pool.has(scene_path):
-		# pool miss
+		# 池未命中
 		if object_pool[scene_path].instances.size() < 1:
 			if !is_starting:
 				if !pool_miss.has(scene_path):
@@ -52,28 +52,28 @@ func load_from_pool(scene_path):
 				pool_miss[scene_path] += 1
 			return create_and_use_instance(scene_path)
 		else:
-			# return inactive instance, and toggle it active
+			# 返回非活跃实例，并将其切换为活跃
 			var instance = object_pool[scene_path].instances[0]
 			object_pool[scene_path].instances.erase(instance)
 			use_instance(scene_path, instance)
 			return instance
 	else:
-		# scene is not registered with the object pooler UI
-		# create it regardless at runtime
+		# 场景未在对象池 UI 中注册
+		# 无论如何在运行时创建它
 		return create_and_use_instance(scene_path)
 
-# creates an inactive instance and assigns it to the array of the scene path
+# 创建一个非活跃实例并将其分配到场景路径的数组中
 func create_instance(scene_path):
 	if !object_pool.has(scene_path):
 		object_pool[scene_path] = {
 			instances = [],
 			props = {}
 		}
-	var instance = load(scene_path).instance()
+	var instance = load(scene_path).instantiate()
 	instance.set_meta("scene_path", scene_path)
 	
-	# record the initial state of the instance
-	if instance is Spatial:
+	# 记录实例的初始状态
+	if instance is Node3D:
 		object_pool[scene_path].props = {
 			transform = get_prop(instance, "global_transform", instance.transform)
 		}
@@ -85,31 +85,31 @@ func create_instance(scene_path):
 		
 	if instance is Control:
 		object_pool[scene_path].props = {
-			position = get_prop(instance, "rect_global_position", instance.rect_position),
-			rotation = instance.rect_rotation,
-			scale = instance.rect_scale,
-			size = instance.rect_size
+			position = get_prop(instance, "global_position", instance.position),
+			rotation = instance.rotation,
+			scale = instance.scale,
+			size = instance.size
 		}
 	
 	object_pool[scene_path].instances.push_back(instance)
 	instances_count += 1
 	return instance
 	
-# wrapper to create and set the instance as active
+# 创建并设置实例为活跃的包装器
 func create_and_use_instance(scene_path):
 	var instance = create_instance(scene_path)
 	object_pool[scene_path].instances.erase(instance)
 	use_instance(scene_path, instance)
 	return instance
 	
-# adds the instance to the used pool and sets it as active
+# 将实例添加到已使用池并设置为活跃
 func use_instance(scene_path, instance):
 	if !used_object_pool.has(scene_path):
 		used_object_pool[scene_path] = []
 	toggle_instance_activation(instance, true)
 	used_object_pool[scene_path].push_back(instance)
 
-# deactivates the instance
+# 停用实例
 func queue_free_instance(instance):
 	toggle_instance_activation(instance, false)
 	if instance.has_meta("scene_path"):
@@ -117,8 +117,8 @@ func queue_free_instance(instance):
 			used_object_pool[instance.get_meta("scene_path")].erase(instance)
 		object_pool[instance.get_meta("scene_path")].instances.push_back(instance)
 	
-# sets the instance's initial state or deactivates it, 
-# while removing it from the scene tree
+# 设置实例的初始状态或停用它，
+# 同时将其从场景树中移除
 func toggle_instance_activation(instance, activate):
 	recursively_activate(instance, activate)
 	if instance.has_method("on_object_pooling_reset"):
@@ -127,24 +127,24 @@ func toggle_instance_activation(instance, activate):
 		instance.get_parent().call_deferred("remove_child", instance)
 		
 		if instance.has_meta("scene_path"):
-			if instance is Spatial:
+			if instance is Node3D:
 				instance.global_transform = object_pool[instance.get_meta("scene_path")].props.transform
 			
 			if instance is Node2D:
 				instance.global_transform = object_pool[instance.get_meta("scene_path")].props.transform
 		
 			if instance is Control:
-				instance.rect_global_position = object_pool[instance.get_meta("scene_path")].props.position
-				instance.rect_rotation = object_pool[instance.get_meta("scene_path")].props.rotation
-				instance.rect_scale = object_pool[instance.get_meta("scene_path")].props.scale
-				instance.rect_size = object_pool[instance.get_meta("scene_path")].props.size
+				instance.global_position = object_pool[instance.get_meta("scene_path")].props.position
+				instance.rotation = object_pool[instance.get_meta("scene_path")].props.rotation
+				instance.scale = object_pool[instance.get_meta("scene_path")].props.scale
+				instance.size = object_pool[instance.get_meta("scene_path")].props.size
 	instance.visible = activate
 	
-# (de-)activate all physics related objects in the node hierarchy
+# （取消）激活节点层级中所有物理相关对象
 func recursively_activate(instance, activate):
 	for child_node in instance.get_children():
 		recursively_activate(child_node, activate)
-	if instance is CollisionShape:
+	if instance is CollisionShape3D:
 		instance.disabled = !activate
 		return
 	if instance is CollisionShape2D:
@@ -153,7 +153,7 @@ func recursively_activate(instance, activate):
 	if instance is CollisionPolygon2D:
 		instance.disabled = !activate
 		return
-	if instance is CollisionPolygon:
+	if instance is CollisionPolygon3D:
 		instance.disabled = !activate
 		return
 	
@@ -174,7 +174,7 @@ func format_memory_usage(val):
 	
 func print_status():
 	if is_debug:
-		print("ObjectPooling: [%3s] instances spawned [Dyn: %s, Stat: %s, Peak: %s]" % [instances_count, format_memory_usage(OS.get_dynamic_memory_usage()), format_memory_usage(OS.get_static_memory_usage()), format_memory_usage(OS.get_static_memory_peak_usage())])
+		print("ObjectPooling: [%3s] instances spawned [Mem: %s]" % [instances_count, format_memory_usage(OS.get_static_memory_usage())])
 
 func print_pool_miss():
 	if pool_miss.keys().size() > 0:

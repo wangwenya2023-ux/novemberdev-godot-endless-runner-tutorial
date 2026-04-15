@@ -1,17 +1,17 @@
-extends Spatial
+extends Node3D
 class_name PART
 
 var visited = false
-export(String) var type
+@export var type: String
 
-# unload the part if it is marked as visited
+# 如果该部分被标记为已访问，则卸载它
 func _process(delta):
 	if visited:
 		visited = false
 		ObjectPooling.queue_free_instance(self)
-		Globals.emit_signal("on_unload_part", self)
+		Globals.on_unload_part.emit(self)
 
-# remove all active obstacles inside this part
+# 移除该部分内所有活跃的障碍物
 func on_object_pooling_reset(activate):
 	if !activate:
 		visited = false
