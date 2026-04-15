@@ -11,5 +11,5 @@ signal on_collect
 signal on_die
 
 # smootly lerp between two rotations
-func slerp_look_at(t : Transform, dir, delta):
-	 return t.basis.slerp(t.looking_at(dir, Vector3.UP).basis, delta)
+func slerp_look_at(t : Transform3D, dir, delta):
+	return t.basis.slerp(t.looking_at(dir, Vector3.UP).basis, delta)
